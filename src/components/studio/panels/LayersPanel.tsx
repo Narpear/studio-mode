@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import Image from 'next/image'
+import NextImage from 'next/image'
 import { useStudioStore } from '@/store'
 import { Layer, LayerType, BlendMode } from '@/types'
 
@@ -221,7 +221,7 @@ export default function LayersPanel() {
             {/* Thumbnail */}
             <div className="w-6 h-6 rounded bg-neutral-800 shrink-0 overflow-hidden border border-neutral-700">
               {layer.data && (
-                <Image
+                <NextImage
                   src={layer.data}
                   alt=""
                   width={24}
