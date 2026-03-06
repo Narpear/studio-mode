@@ -70,7 +70,7 @@ export default function LayersPanel() {
     const reader = new FileReader()
     reader.onload = () => {
       const src = reader.result as string
-      const img = new Image()
+      const img = document.createElement('img')
       img.onload = () => {
         const maxW = canvasSize.width
         const maxH = canvasSize.height
