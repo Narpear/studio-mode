@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Image from 'next/image'
 import { useStudioStore } from '@/store'
 import { Layer, LayerType, BlendMode } from '@/types'
@@ -21,6 +21,7 @@ const LAYER_TYPE_ICONS: Record<LayerType, string> = {
 
 export default function LayersPanel() {
   const {
+    canvasSize,
     layers,
     activeLayerId,
     setActiveLayer,
@@ -31,15 +32,23 @@ export default function LayersPanel() {
     toggleLayerLock,
     updateLayer,
     reorderLayers,
+    pushHistory,
   } = useStudioStore()
 
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
   const reversed = [...layers].reverse()
 
   const handleAddLayer = (type: LayerType) => {
+    if (type === 'image') {
+      fileInputRef.current?.click()
+      return
+    }
+
     const layer: Layer = {
       id: crypto.randomUUID(),
       name: `${type.charAt(0).toUpperCase() + type.slice(1)} Layer`,
@@ -55,6 +64,42 @@ export default function LayersPanel() {
       zIndex: layers.length,
     }
     addLayer(layer)
+  }
+
+  const handleImportFile = (file: File) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const src = reader.result as string
+      const img = new Image()
+      img.onload = () => {
+        const maxW = canvasSize.width
+        const maxH = canvasSize.height
+        const scale = Math.min(maxW / img.width, maxH / img.height, 1)
+        const w = img.width * scale
+        const h = img.height * scale
+        const x = (maxW - w) / 2
+        const y = (maxH - h) / 2
+
+        addLayer({
+          id: crypto.randomUUID(),
+          name: file.name || 'Image layer',
+          type: 'image',
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal',
+          x,
+          y,
+          width: w,
+          height: h,
+          data: src,
+          zIndex: layers.length,
+        })
+        pushHistory('Import image')
+      }
+      img.src = src
+    }
+    reader.readAsDataURL(file)
   }
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -85,6 +130,18 @@ export default function LayersPanel() {
 
   return (
     <div className="flex flex-col h-full">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (!file) return
+          handleImportFile(file)
+          e.target.value = ''
+        }}
+      />
       {/* Header */}
       <div className="panel-header flex items-center justify-between">
         <span>Layers</span>

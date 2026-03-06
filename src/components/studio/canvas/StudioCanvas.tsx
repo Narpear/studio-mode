@@ -75,7 +75,11 @@ export default function StudioCanvas() {
       if (layer.data) {
         const img = new Image()
         img.src = layer.data
-        ctx.drawImage(img, layer.x, layer.y)
+        if (layer.width && layer.height) {
+          ctx.drawImage(img, layer.x, layer.y, layer.width, layer.height)
+        } else {
+          ctx.drawImage(img, layer.x, layer.y)
+        }
       } else if (layer.type === 'shape' && layer.color) {
         ctx.fillStyle = layer.color
         if (layer.shape === 'ellipse') {
@@ -117,6 +121,64 @@ export default function StudioCanvas() {
   }, [layers, showGrid, activePantoneHex])
 
   useEffect(() => { renderCanvas() }, [renderCanvas])
+
+  // Paste images from clipboard as new image layers
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+
+      const imageItem = Array.from(items).find(
+        (item) => item.kind === 'file' && item.type.startsWith('image/')
+      )
+      if (!imageItem) return
+
+      const file = imageItem.getAsFile()
+      if (!file) return
+
+      e.preventDefault()
+
+      const reader = new FileReader()
+      reader.onload = () => {
+        const src = reader.result as string
+        const img = new Image()
+        img.onload = () => {
+          // Center roughly where the viewport is
+          const center = toCanvas(window.innerWidth / 2, window.innerHeight / 2)
+          const maxW = canvasSize.width
+          const maxH = canvasSize.height
+          const scale = Math.min(maxW / img.width, maxH / img.height, 1)
+          const w = img.width * scale
+          const h = img.height * scale
+          const x = center.x - w / 2
+          const y = center.y - h / 2
+
+          addLayer({
+            id: crypto.randomUUID(),
+            name: file.name || 'Pasted image',
+            type: 'image',
+            visible: true,
+            locked: false,
+            opacity: 1,
+            blendMode: 'normal',
+            x,
+            y,
+            width: w,
+            height: h,
+            data: src,
+            zIndex: layers.length,
+          })
+          pushHistory('Paste image')
+          renderCanvas()
+        }
+        img.src = src
+      }
+      reader.readAsDataURL(file)
+    }
+
+    window.addEventListener('paste', handlePaste)
+    return () => window.removeEventListener('paste', handlePaste)
+  }, [addLayer, canvasSize, layers.length, pushHistory, renderCanvas, toCanvas])
 
   // Get or create active layer offscreen canvas
   const getActiveLayerCtx = useCallback(() => {
